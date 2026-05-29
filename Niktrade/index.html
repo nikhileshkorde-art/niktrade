@@ -316,9 +316,9 @@ var CFG={apiKey:'',secretKey:'',baseUrl:'',amt:25,email:'',cash:false,acctType:'
 var acct=null,scanMode='penny',dtCount=0,stratIdx=0;
 var STARRED=JSON.parse(localStorage.getItem('niktrade_stars')||'[]');
 var STRATS=[
-  {name:'Conservative',trail:0.5,stop:1.0,desc:'Trailing stop: sell when price drops <strong>0.5%</strong> from peak. Hard stop at <strong>-1%</strong> from buy price.'},
-  {name:'Moderate',trail:1.0,stop:2.0,desc:'Trailing stop: sell when price drops <strong>1%</strong> from peak. Hard stop at <strong>-2%</strong> from buy price.'},
-  {name:'Aggressive',trail:1.5,stop:3.0,desc:'Trailing stop: sell when price drops <strong>1.5%</strong> from peak. Hard stop at <strong>-3%</strong> from buy price.'}
+  {name:'Conservative',trail:0.5,stop:1.0,desc:'Buy stocks up <strong>0.5–5%</strong> and still climbing. Trailing stop: sell if drops <strong>0.5%</strong> from peak. Hard stop at <strong>-1%</strong>.'},
+  {name:'Moderate',trail:1.0,stop:2.0,desc:'Buy stocks up <strong>0.5–5%</strong> and still climbing. Trailing stop: sell if drops <strong>1%</strong> from peak. Hard stop at <strong>-2%</strong>.'},
+  {name:'Aggressive',trail:1.5,stop:3.0,desc:'Buy stocks up <strong>0.5–5%</strong> and still climbing. Trailing stop: sell if drops <strong>1.5%</strong> from peak. Hard stop at <strong>-3%</strong>.'}
 ];
 var PENNY=['SNDL','MNMD','CLOV','EXPR','IDEX','NKLA','KOSS','MMAT','OCGN','WKHS','CTRM','SHIP','ZOM','HTBX','APDN','ATER','PHUN','MIMO','NXTP','DPRO'];
 var QUALITY=['AAPL','MSFT','GOOGL','AMZN','META','NVDA','TSLA','JPM','AMD','BAC','XOM','PLTR','SOFI','NIO','RIVN','F','GME','PYPL','SNAP','UBER'];
@@ -372,7 +372,7 @@ function saveCFG(){localStorage.setItem('niktrade_cfg',JSON.stringify({apiKey:CF
 function saveCash(){CFG.cash=document.getElementById('cashToggle').checked;saveCFG();}
 function setStrat(i,btn){stratIdx=i;document.querySelectorAll('.stab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');setStratInfo();log('Strategy: '+STRATS[i].name,'info');}
 function setStratInfo(){document.getElementById('stratInfo').innerHTML='<strong>'+STRATS[stratIdx].name+':</strong> '+STRATS[stratIdx].desc+'<br><span style="font-size:11px;color:var(--text3)">Exit orders managed by Alpaca automatically.</span>';}
-function setScan(t,btn){scanMode=t;document.querySelectorAll('.scantab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');document.getElementById('candidates').innerHTML='<div class="empty">Press scan to find stocks</div>';}
+function setScan(t,btn){scanMode=t;document.querySelectorAll('.scantab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');document.getElementById('candidates').innerHTML='<div class="empty">Press scan to find rising stocks</div>';}
 
 function isMarketOpen(){
   var now=new Date();
@@ -522,12 +522,14 @@ async function doScan(){
       if(isPenny&&(price<0.10||price>5))continue;
       if(isPenny&&vol<300000)continue;
       if(!isPenny&&vol<500000)continue;
-      if(chg>=-0.5||chg<(isPenny?-10:-5))continue;
+      // Momentum strategy: up 0.5-5% from yesterday AND still rising from open
+      if(chg<0.5||chg>5)continue;
       var rising=price>open;
       var mom=((price-open)/open)*100;
+      if(!rising)continue; // only show stocks still climbing
       cands.push({sym:sym,price:price,chg:chg,vol:vol,rising:rising,mom:mom,open:open,prev:prev});
     }
-    cands.sort(function(a,b){if(a.rising&&!b.rising)return -1;if(!a.rising&&b.rising)return 1;return b.mom-a.mom;});
+    cands.sort(function(a,b){return b.mom-a.mom;}); // strongest momentum first
     if(!cands.length){
       document.getElementById('candidates').innerHTML='<div class="empty">No dip opportunities found.<br>Market may be closed or flat today.</div>';
       log('No qualifying stocks found','info');
@@ -549,7 +551,7 @@ async function doScan(){
         html+='<span class="chg-pill">'+c.chg.toFixed(2)+'% today</span></div></div>';
         html+='<div class="mini-chart"><canvas id="cv_'+c.sym+'" width="400" height="50"></canvas></div>';
         html+='<div class="chart-lbl"><span>Open $'+c.open.toFixed(3)+'</span><span>'+mt+'</span><span>Now $'+c.price.toFixed(3)+'</span></div>';
-        html+='<div class="cand-foot"><span class="rec '+(c.rising?'rec-buy':'rec-wait')+'">'+(c.rising?'Good to buy':'Wait for recovery')+'</span>';
+        html+='<div class="cand-foot"><span class="rec rec-buy">&#9650; Momentum buy</span>';
         html+='<div style="display:flex;gap:6px;align-items:center">';
         var starColor=starred?'#d4a017':'var(--text3)';
         var starChar=starred?'★':'☆';
