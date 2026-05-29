@@ -453,13 +453,24 @@ async function apFetch(ep,opts){
 }
 
 async function fetchQuotes(symbols){
-  var url='https://query1.finance.yahoo.com/v7/finance/quote?symbols='+symbols.join(',')+'&fields=symbol,regularMarketPrice,regularMarketOpen,regularMarketPreviousClose,regularMarketVolume,regularMarketChangePercent';
-  var res=await fetch(url,{headers:{'Accept':'application/json'}});
-  if(!res.ok)throw new Error('Yahoo HTTP '+res.status);
+  var ep='/v2/stocks/snapshots?symbols='+symbols.join(',');
+  var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
+  var res=await fetch(url,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
+  if(!res.ok)throw new Error('Function HTTP '+res.status);
   var data=await res.json();
-  var quotes=data.quoteResponse&&data.quoteResponse.result||[];
   var results={};
-  quotes.forEach(function(q){results[q.symbol]=q;});
+  for(var sym in data){
+    var d=data[sym];
+    if(!d.dailyBar||!d.prevDailyBar)continue;
+    results[sym]={
+      symbol:sym,
+      regularMarketPrice:d.dailyBar.c,
+      regularMarketPreviousClose:d.prevDailyBar.c,
+      regularMarketOpen:d.dailyBar.o,
+      regularMarketVolume:d.dailyBar.v,
+      regularMarketChangePercent:((d.dailyBar.c-d.prevDailyBar.c)/d.prevDailyBar.c)*100
+    };
+  }
   return results;
 }
 
@@ -506,7 +517,7 @@ async function doScan(){
       var prev=q.regularMarketPreviousClose;
       var open=q.regularMarketOpen||prev;
       var vol=q.regularMarketVolume||0;
-      var chg=((price-prev)/prev)*100;
+      var chg=q.regularMarketChangePercent||((price-prev)/prev)*100;
       var isPenny=scanMode==='penny';
       if(isPenny&&(price<0.10||price>5))continue;
       if(isPenny&&vol<300000)continue;
