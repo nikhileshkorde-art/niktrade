@@ -527,10 +527,10 @@ async function doScan(){
       if(!isPenny&&vol<500000)continue;
       // Momentum strategy: up 0.5-5% from yesterday's close
       if(chg<0.5||chg>5)continue;
-      var rising=price>open;
+      // When market is open: rising = currently above today's open (intraday momentum)
+      // When market is closed: rising = closed higher than yesterday (day-over-day momentum)
+      var rising=marketOpen?(price>open):(chg>0);
       var mom=((price-open)/open)*100;
-      // When market is open, only show stocks still climbing intraday
-      // When market is closed, show last trading day data regardless
       if(marketOpen&&!rising)continue;
       cands.push({sym:sym,price:price,chg:chg,vol:vol,rising:rising,mom:mom,open:open,prev:prev});
     }
