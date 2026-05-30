@@ -840,39 +840,54 @@ async function doQuickBuy(){
     var price=(d.latestTrade&&d.latestTrade.p)||d.dailyBar.c;
     var prev=d.prevDailyBar?d.prevDailyBar.c:price;
     var open=d.dailyBar?d.dailyBar.o:price;
+    var high=d.dailyBar?d.dailyBar.h:price;
+    var low=d.dailyBar?d.dailyBar.l:price;
     var vol=d.dailyBar?d.dailyBar.v:0;
     var chg=((price-prev)/prev)*100;
     var vs=vol>1e6?(vol/1e6).toFixed(1)+'M':vol>1000?(vol/1000).toFixed(0)+'K':vol;
     var chgSign=chg>=0?'+':'';
     var chgCol=chg>=0?'var(--jade-dark)':'var(--red)';
+    var rising=price>=open;
+    // Format prev date
+    var prevDateStr='';
+    if(d.prevDailyBar&&d.prevDailyBar.t){
+      var pd=new Date(d.prevDailyBar.t);
+      prevDateStr=pd.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    }
+    var vsLabel=prevDateStr?'vs '+prevDateStr:'vs prev close';
     var mktOpen=isMarketOpen();
     var mStatus=marketStatus();
     var dtLeft=Math.max(0,3-dtCount);
     var dtWarn=!CFG.cash&&dtLeft<=1;
-    // Day trade warning: if already holding this stock, selling same day = day trade
     var dtNote=CFG.cash?'Cash account — unlimited trades':'Day trades left this week: <strong style="color:'+(dtWarn?'var(--red)':'var(--gold)')+'">'+dtLeft+' / 3</strong>';
-    var buyBtnHtml;
-    if(!mktOpen){
-      buyBtnHtml='<button class="btn btn-buy" disabled style="opacity:0.35;cursor:not-allowed" title="'+mStatus+'">Market Closed</button>';
-    }else{
-      buyBtnHtml='<button class="btn btn-buy" onclick="doBuy(\''+sym+'\','+price+')">Buy '+sym+'</button>';
-    }
+    var buyBtnHtml=mktOpen
+      ?'<button class="btn btn-buy" onclick="doBuy(\''+sym+'\','+price+')">Buy '+sym+'</button>'
+      :'<button class="btn btn-buy" disabled style="opacity:0.35;cursor:not-allowed;pointer-events:none;">Market Closed</button>';
     resultDiv.innerHTML='<div class="quick-result">'+
       '<div class="quick-result-top">'+
         '<div><div class="quick-result-sym">'+sym+'</div>'+
         '<div class="quick-result-sub">$'+price.toFixed(3)+' &middot; Vol: '+vs+'</div></div>'+
         '<div style="text-align:right">'+
           '<div style="font-size:15px;font-weight:700;color:'+chgCol+'">'+chgSign+chg.toFixed(2)+'%</div>'+
-          '<div style="font-size:10px;color:var(--text3)">vs yesterday</div>'+
-          '<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(price>open?'▲ Above open':'▼ Below open')+'</div>'+
+          '<div style="font-size:10px;color:var(--text3)">'+vsLabel+'</div>'+
+          '<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(rising?'▲ Above open':'▼ Below open')+'</div>'+
         '</div>'+
       '</div>'+
-      (!mktOpen?'<div style="font-size:11px;color:var(--gold-dark);background:var(--gold-bg);padding:6px 10px;margin-bottom:8px;">'+mStatus+'</div>':'')+
+      '<div class="mini-chart" style="margin-bottom:6px"><canvas id="cv_quick" width="400" height="50"></canvas></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);font-family:JetBrains Mono,monospace;margin-bottom:10px">'+
+        '<span>Prev close $'+prev.toFixed(3)+'</span><span>Open $'+open.toFixed(3)+'</span><span>Now $'+price.toFixed(3)+'</span>'+
+      '</div>'+
+      (!mktOpen?'<div style="font-size:11px;color:var(--gold-dark);background:var(--gold-bg);padding:6px 10px;margin-bottom:10px;">'+mStatus+'</div>':'')+
       '<div class="quick-result-foot">'+
         '<div class="quick-dt-info">'+dtNote+'</div>'+
         buyBtnHtml+
       '</div>'+
     '</div>';
+    // Draw sparkline: prev_close → open → mid → price
+    setTimeout(function(){
+      var cv=document.getElementById('cv_quick');
+      if(cv){var mid=(open+price)/2;drawChart(cv,[{c:prev},{c:open},{c:mid},{c:price}],rising);}
+    },50);
     log('Looked up '+sym+' @ $'+price.toFixed(3)+' ('+chgSign+chg.toFixed(2)+'%)','info');
   }catch(e){
     resultDiv.innerHTML='<div class="empty" style="font-size:12px;padding:10px">Could not find "'+sym+'" — check the ticker and try again.</div>';
