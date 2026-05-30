@@ -616,7 +616,7 @@ async function apFetch(ep,opts){
 
 async function fetchQuotes(symbols){
   var ep='/v2/stocks/snapshots?symbols='+symbols.join(',');
-  var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
+  var url='/api/alpaca?endpoint='+encodeURIComponent(ep);
   var res=await fetch(url,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
   if(!res.ok)throw new Error('Function HTTP '+res.status);
   var data=await res.json();
@@ -672,7 +672,7 @@ async function fetchScreener(){
   var fallback=scanMode==='penny'?PENNY:QUALITY;
   try{
     var ep='/v1beta1/screener/stocks/top-market-movers?market_type=stocks';
-    var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
+    var url='/api/alpaca?endpoint='+encodeURIComponent(ep);
     var res=await fetch(url,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
     if(!res.ok)throw new Error('movers HTTP '+res.status);
     var data=await res.json();
@@ -686,7 +686,7 @@ async function fetchScreener(){
     log('Top movers unavailable ('+e1.message+'), trying most-actives…','info');
     try{
       var ep2='/v1beta1/screener/stocks/most-actives?by=volume&top=100';
-      var url2='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep2);
+      var url2='/api/alpaca?endpoint='+encodeURIComponent(ep2);
       var res2=await fetch(url2,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
       if(!res2.ok)throw new Error('actives HTTP '+res2.status);
       var data2=await res2.json();
@@ -831,7 +831,7 @@ async function doQuickBuy(){
   resultDiv.innerHTML='';
   try{
     var ep='/v2/stocks/snapshots?symbols='+sym;
-    var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
+    var url='/api/alpaca?endpoint='+encodeURIComponent(ep);
     var res=await fetch(url,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
     if(!res.ok)throw new Error('HTTP '+res.status);
     var data=await res.json();
