@@ -172,19 +172,24 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
   .strat-tabs{flex-direction:column;}
 }
 .adv-toggle{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;padding:4px 0 10px 0;letter-spacing:0.4px;text-transform:uppercase;}
-.adv-toggle svg{transition:transform 0.2s;}
+.adv-toggle svg{transition:transform 0.25s;}
 .adv-toggle.open svg{transform:rotate(180deg);}
-.adv-panel{display:none;background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:14px;}
+.adv-panel{display:none;background:var(--surface);border:1px solid var(--border);padding:0 16px;margin-bottom:14px;}
 .adv-panel.open{display:block;}
-.adv-row{margin-bottom:14px;}
-.adv-row:last-child{margin-bottom:0;}
-.adv-lbl{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:7px;}
-.adv-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--jade-dark);font-weight:700;}
-.adv-slider-wrap{display:flex;gap:8px;align-items:center;}
-input[type=range].adv-slider{-webkit-appearance:none;appearance:none;flex:1;height:3px;background:var(--border2);outline:none;border-radius:0;}
-input[type=range].adv-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:var(--jade);cursor:pointer;border-radius:0;}
-input[type=range].adv-slider::-moz-range-thumb{width:14px;height:14px;background:var(--jade);cursor:pointer;border-radius:0;border:none;}
-.adv-reset{font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;padding:0;float:right;}
+.adv-row{padding:16px 0;border-bottom:1px solid var(--border);}
+.adv-row:last-of-type{border-bottom:none;}
+.adv-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;}
+.adv-head-left{flex:1;}
+.adv-lbl{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:3px;}
+.adv-desc{font-size:11px;color:var(--text3);line-height:1.4;}
+.adv-badge{background:var(--jade-bg);color:var(--jade-dark);border:1px solid rgba(122,150,104,0.3);font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;padding:5px 11px;white-space:nowrap;flex-shrink:0;}
+.adv-ticks{display:flex;justify-content:space-between;margin-bottom:6px;}
+.adv-tick{font-size:9px;color:var(--text3);text-align:center;flex:1;}
+.adv-tick.active{color:var(--rose-dark);font-weight:700;}
+input[type=range].adv-slider{-webkit-appearance:none;appearance:none;width:100%;height:4px;outline:none;border-radius:2px;cursor:pointer;background:linear-gradient(to right,var(--rose) 0%,var(--rose) var(--fill,0%),var(--border2) var(--fill,0%),var(--border2) 100%);}
+input[type=range].adv-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:white;border:2.5px solid var(--rose);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);}
+input[type=range].adv-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:white;border:2.5px solid var(--rose);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);}
+.adv-reset{display:block;margin-top:14px;font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;padding:0;text-align:right;width:100%;}
 </style>
 </head>
 <body>
@@ -273,32 +278,48 @@ input[type=range].adv-slider::-moz-range-thumb{width:14px;height:14px;background
       </button>
       <div class="adv-panel" id="advPanel">
         <div class="adv-row">
-          <div class="adv-lbl">% Change from yesterday <span class="adv-val" id="chgRangeVal">0.5% – 5%</span></div>
-          <div class="adv-slider-wrap">
-            <span style="font-size:10px;color:var(--text3)">0%</span>
-            <input type="range" class="adv-slider" id="chgMin" min="0" max="10" step="0.5" value="0.5" oninput="updateAdvLabels()">
-            <span style="font-size:10px;color:var(--text3)">–</span>
-            <input type="range" class="adv-slider" id="chgMax" min="0" max="20" step="0.5" value="5" oninput="updateAdvLabels()">
-            <span style="font-size:10px;color:var(--text3)">20%</span>
+          <div class="adv-head">
+            <div class="adv-head-left">
+              <div class="adv-lbl">Minimum gain</div>
+              <div class="adv-desc">Stock must be up at least this much from yesterday</div>
+            </div>
+            <div class="adv-badge" id="chgMinBadge">0.5%</div>
           </div>
+          <div class="adv-ticks" id="chgMinTicks"></div>
+          <input type="range" class="adv-slider" id="chgMin" min="0" max="5" step="1" value="1" oninput="updateAdv('chgMin')">
         </div>
         <div class="adv-row">
-          <div class="adv-lbl">Min volume <span class="adv-val" id="volVal">300K shares</span></div>
-          <div class="adv-slider-wrap">
-            <span style="font-size:10px;color:var(--text3)">0</span>
-            <input type="range" class="adv-slider" id="volMin" min="0" max="2000" step="50" value="300" oninput="updateAdvLabels()">
-            <span style="font-size:10px;color:var(--text3)">2M</span>
+          <div class="adv-head">
+            <div class="adv-head-left">
+              <div class="adv-lbl">Maximum gain</div>
+              <div class="adv-desc">Exclude stocks that already ran too much</div>
+            </div>
+            <div class="adv-badge" id="chgMaxBadge">5%</div>
           </div>
+          <div class="adv-ticks" id="chgMaxTicks"></div>
+          <input type="range" class="adv-slider" id="chgMax" min="0" max="5" step="1" value="1" oninput="updateAdv('chgMax')">
         </div>
         <div class="adv-row">
-          <div class="adv-lbl">Price range <span class="adv-val" id="priceRangeVal">$0.10 – $5.00</span></div>
-          <div class="adv-slider-wrap">
-            <span style="font-size:10px;color:var(--text3)">$0</span>
-            <input type="range" class="adv-slider" id="priceMin" min="0" max="5" step="0.05" value="0.10" oninput="updateAdvLabels()">
-            <span style="font-size:10px;color:var(--text3)">–</span>
-            <input type="range" class="adv-slider" id="priceMax" min="0.5" max="50" step="0.5" value="5" oninput="updateAdvLabels()">
-            <span style="font-size:10px;color:var(--text3)">$50</span>
+          <div class="adv-head">
+            <div class="adv-head-left">
+              <div class="adv-lbl">Minimum volume</div>
+              <div class="adv-desc">Shares traded that day — higher means easier to buy/sell</div>
+            </div>
+            <div class="adv-badge" id="volBadge">300K</div>
           </div>
+          <div class="adv-ticks" id="volTicks"></div>
+          <input type="range" class="adv-slider" id="volMin" min="0" max="6" step="1" value="3" oninput="updateAdv('volMin')">
+        </div>
+        <div class="adv-row">
+          <div class="adv-head">
+            <div class="adv-head-left">
+              <div class="adv-lbl">Maximum price</div>
+              <div class="adv-desc">Upper price limit per share</div>
+            </div>
+            <div class="adv-badge" id="priceMaxBadge">$5.00</div>
+          </div>
+          <div class="adv-ticks" id="priceMaxTicks"></div>
+          <input type="range" class="adv-slider" id="priceMax" min="0" max="4" step="1" value="1" oninput="updateAdv('priceMax')">
         </div>
         <button class="adv-reset" onclick="resetAdv()">Reset to defaults</button>
       </div>
@@ -363,34 +384,62 @@ input[type=range].adv-slider::-moz-range-thumb{width:14px;height:14px;background
 <script>
 var CFG={apiKey:'',secretKey:'',baseUrl:'',amt:25,email:'',cash:false,acctType:'live'};
 var acct=null,scanMode='penny',dtCount=0,stratIdx=0;
+var ADV_STEPS={
+  chgMin:[0,0.5,1,2,3,5],
+  chgMax:[3,5,8,10,15,20],
+  volMin:[0,50,100,300,500,1000,2000],
+  priceMax:[2,5,10,20,50]
+};
+var ADV_LABELS={
+  chgMin:['0%','0.5%','1%','2%','3%','5%'],
+  chgMax:['3%','5%','8%','10%','15%','20%'],
+  volMin:['None','50K','100K','300K','500K','1M','2M'],
+  priceMax:['$2','$5','$10','$20','$50']
+};
+var ADV_DEFAULTS={chgMin:1,chgMax:1,volMin:3,priceMax:1};
 function toggleAdv(){var t=document.getElementById('advToggle'),p=document.getElementById('advPanel');t.classList.toggle('open');p.classList.toggle('open');}
-function updateAdvLabels(){
-  var cMin=parseFloat(document.getElementById('chgMin').value);
-  var cMax=parseFloat(document.getElementById('chgMax').value);
-  if(cMin>cMax){document.getElementById('chgMin').value=cMax;cMin=cMax;}
-  document.getElementById('chgRangeVal').textContent=cMin+'% – '+cMax+'%';
-  var vol=parseInt(document.getElementById('volMin').value);
-  document.getElementById('volVal').textContent=(vol>=1000?(vol/1000).toFixed(1)+'M':vol+'K')+' shares';
-  var pMin=parseFloat(document.getElementById('priceMin').value);
-  var pMax=parseFloat(document.getElementById('priceMax').value);
-  if(pMin>pMax){document.getElementById('priceMin').value=pMax;pMin=pMax;}
-  document.getElementById('priceRangeVal').textContent='$'+pMin.toFixed(2)+' – $'+pMax.toFixed(2);
+function advFill(el){var pct=(parseInt(el.value)/parseInt(el.max))*100;el.style.setProperty('--fill',pct+'%');}
+function advTicks(id,activeIdx){
+  var labels=ADV_LABELS[id];
+  var wrap=document.getElementById(id+'Ticks');
+  if(!wrap)return;
+  wrap.innerHTML=labels.map(function(l,i){return'<span class="adv-tick'+(i===activeIdx?' active':'')+'" style="min-width:0">'+l+'</span>';}).join('');
+}
+function updateAdv(id){
+  var el=document.getElementById(id);
+  var idx=parseInt(el.value);
+  var val=ADV_STEPS[id][idx];
+  advFill(el);
+  advTicks(id,idx);
+  var badge=document.getElementById(id+'Badge');
+  if(badge){
+    if(id==='volMin') badge.textContent=ADV_LABELS.volMin[idx];
+    else if(id==='priceMax') badge.textContent='$'+val.toFixed(2);
+    else badge.textContent=val+'%';
+  }
+}
+function initAdv(){
+  Object.keys(ADV_DEFAULTS).forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    el.max=ADV_STEPS[id].length-1;
+    el.value=ADV_DEFAULTS[id];
+    updateAdv(id);
+  });
 }
 function resetAdv(){
-  document.getElementById('chgMin').value=0.5;
-  document.getElementById('chgMax').value=5;
-  document.getElementById('volMin').value=300;
-  document.getElementById('priceMin').value=0.10;
-  document.getElementById('priceMax').value=5;
-  updateAdvLabels();
+  Object.keys(ADV_DEFAULTS).forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){el.value=ADV_DEFAULTS[id];updateAdv(id);}
+  });
 }
 function getAdvFilters(){
   return{
-    chgMin:parseFloat(document.getElementById('chgMin').value),
-    chgMax:parseFloat(document.getElementById('chgMax').value),
-    volMin:parseInt(document.getElementById('volMin').value)*1000,
-    priceMin:parseFloat(document.getElementById('priceMin').value),
-    priceMax:parseFloat(document.getElementById('priceMax').value)
+    chgMin:ADV_STEPS.chgMin[parseInt(document.getElementById('chgMin').value)],
+    chgMax:ADV_STEPS.chgMax[parseInt(document.getElementById('chgMax').value)],
+    volMin:ADV_STEPS.volMin[parseInt(document.getElementById('volMin').value)]*1000,
+    priceMin:0.05,
+    priceMax:ADV_STEPS.priceMax[parseInt(document.getElementById('priceMax').value)]
   };
 }
 var STARRED=JSON.parse(localStorage.getItem('niktrade_stars')||'[]');
@@ -402,7 +451,7 @@ var STRATS=[
 var PENNY=['SNDL','MNMD','CLOV','EXPR','IDEX','NKLA','KOSS','MMAT','OCGN','WKHS','CTRM','SHIP','ZOM','HTBX','APDN','ATER','PHUN','MIMO','NXTP','DPRO'];
 var QUALITY=['AAPL','MSFT','GOOGL','AMZN','META','NVDA','TSLA','JPM','AMD','BAC','XOM','PLTR','SOFI','NIO','RIVN','F','GME','PYPL','SNAP','UBER'];
 
-window.onload=function(){loadSaved();setStratInfo();renderPDT();renderWatchlist();};
+window.onload=function(){loadSaved();setStratInfo();renderPDT();renderWatchlist();initAdv();};
 
 function loadSaved(){
   try{
