@@ -106,6 +106,14 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .scantab{padding:5px 14px;border:none;border-right:1px solid var(--border2);background:var(--surface);cursor:pointer;font-size:12px;font-weight:600;color:var(--text3);transition:all 0.15s;font-family:'Inter',sans-serif;}
 .scantab:last-child{border-right:none;}
 .scantab.active{background:var(--gold);color:white;}
+.mode-tabs{display:flex;border:1px solid var(--border2);margin-bottom:10px;}
+.modetab{flex:1;padding:6px 10px;border:none;border-right:1px solid var(--border2);background:var(--surface);cursor:pointer;font-size:11px;font-weight:600;color:var(--text3);transition:all 0.15s;font-family:'Inter',sans-serif;text-align:center;}
+.modetab:last-child{border-right:none;}
+.modetab.active.momentum{background:var(--jade);color:white;}
+.modetab.active.dip{background:var(--rose);color:white;}
+.cand.dip{border-left-color:var(--rose);}
+.dip-info{font-size:11px;color:var(--rose-dark);font-weight:600;font-family:'JetBrains Mono',monospace;background:var(--rose-bg);border:1px solid rgba(184,112,96,0.25);padding:3px 8px;margin-bottom:8px;display:inline-block;}
+.rec-dip{background:var(--rose-bg);color:var(--rose-dark);border:1px solid rgba(184,112,96,0.3);}
 .cand{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border2);padding:14px;margin-bottom:10px;}
 .cand.rising{border-left-color:var(--jade);}
 .cand.falling{border-left-color:var(--gold);}
@@ -271,6 +279,10 @@ input[type=range].adv-slider::-moz-range-thumb{width:20px;height:20px;border-rad
           <button class="scantab" onclick="setScan('quality',this)">Quality</button>
         </div>
       </div>
+      <div class="mode-tabs" style="margin-bottom:10px">
+        <button class="modetab active momentum" id="modeTabMom" onclick="setMode('momentum',this)">▲ Momentum</button>
+        <button class="modetab dip" id="modeTabDip" onclick="setMode('dip',this)">▼ Dip Recovery</button>
+      </div>
       <button class="btn btn-primary btn-full" onclick="doScan()" id="scanBtn" style="margin-bottom:8px">Scan for Opportunities</button>
       <button class="adv-toggle" id="advToggle" onclick="toggleAdv()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -383,7 +395,7 @@ input[type=range].adv-slider::-moz-range-thumb{width:20px;height:20px;border-rad
 
 <script>
 var CFG={apiKey:'',secretKey:'',baseUrl:'',amt:25,email:'',cash:false,acctType:'live'};
-var acct=null,scanMode='penny',dtCount=0,stratIdx=0;
+var acct=null,scanMode='penny',scanStratMode='momentum',dtCount=0,stratIdx=0;
 var ADV_STEPS={
   chgMin:[0,0.5,1,2,3,5],
   chgMax:[3,5,8,10,15,20],
@@ -500,7 +512,8 @@ function saveCFG(){localStorage.setItem('niktrade_cfg',JSON.stringify({apiKey:CF
 function saveCash(){CFG.cash=document.getElementById('cashToggle').checked;saveCFG();}
 function setStrat(i,btn){stratIdx=i;document.querySelectorAll('.stab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');setStratInfo();log('Strategy: '+STRATS[i].name,'info');}
 function setStratInfo(){document.getElementById('stratInfo').innerHTML='<strong>'+STRATS[stratIdx].name+':</strong> '+STRATS[stratIdx].desc+'<br><span style="font-size:11px;color:var(--text3)">Exit orders managed by Alpaca automatically.</span>';}
-function setScan(t,btn){scanMode=t;document.querySelectorAll('.scantab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');document.getElementById('candidates').innerHTML='<div class="empty">Press scan to find rising stocks</div>';}
+function setScan(t,btn){scanMode=t;document.querySelectorAll('.scantab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');document.getElementById('candidates').innerHTML='<div class="empty">Press scan to find stocks</div>';}
+function setMode(m,btn){scanStratMode=m;document.querySelectorAll('.modetab').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');document.getElementById('candidates').innerHTML='<div class="empty">Press scan to find stocks</div>';}
 
 function isMarketOpen(){
   var now=new Date();
@@ -690,11 +703,13 @@ async function doScan(){
       if(vol<F.volMin)continue;
       // Momentum strategy: % change from yesterday's close within user range
       if(chg<F.chgMin||chg>F.chgMax)continue;
-      // When market is open: rising = currently above today's open (intraday momentum)
-      // When market is closed: rising = closed higher than yesterday (day-over-day momentum)
-      var rising=marketOpen?(price>open):(chg>0);
+      var aboveOpen=price>open;
       var mom=((price-open)/open)*100;
-      if(marketOpen&&!rising)continue;
+      // Momentum: must be above open (strength all day)
+      // Dip Recovery: must be below open (pulled back, looking for bounce)
+      if(scanStratMode==='momentum'&&!aboveOpen)continue;
+      if(scanStratMode==='dip'&&aboveOpen)continue;
+      var rising=aboveOpen;
       cands.push({sym:sym,price:price,chg:chg,vol:vol,rising:rising,mom:mom,open:open,prev:prev});
     }
     cands.sort(function(a,b){return b.mom-a.mom;}); // strongest momentum first
@@ -714,19 +729,31 @@ async function doScan(){
         var vs=c.vol>1e6?(c.vol/1e6).toFixed(1)+'M':(c.vol/1000).toFixed(0)+'K';
         var mt=(c.mom>=0?'+':'')+c.mom.toFixed(2)+'% from open';
         var starred=STARRED.indexOf(c.sym)!==-1;
-        html+='<div class="cand '+(c.rising?'rising':'falling')+'" id="cand_'+c.sym+'">';
+        var isDip=scanStratMode==='dip';
+        var cardClass=isDip?'dip':'rising';
+        html+='<div class="cand '+cardClass+'" id="cand_'+c.sym+'">';
         html+='<div class="cand-top"><div><div class="cand-sym">'+c.sym+'</div><div class="cand-sub">$'+c.price.toFixed(3)+' &middot; Vol: '+vs+'</div></div>';
-        html+='<div class="cand-right"><span class="trend '+(c.rising?'up':'down')+'">'+(c.rising?'&#9650; Rising':'&#9660; Falling')+'</span>';
-        html+='<span class="chg-pill">'+c.chg.toFixed(2)+'% today</span></div></div>';
+        html+='<div class="cand-right">';
+        if(isDip){
+          html+='<span class="trend down">&#9660; Dip</span>';
+        }else{
+          html+='<span class="trend up">&#9650; Rising</span>';
+        }
+        html+='<span class="chg-pill">'+c.chg.toFixed(2)+'% vs yesterday</span></div></div>';
+        if(isDip){
+          html+='<div class="dip-info">Dip: '+mt+' — up '+c.chg.toFixed(2)+'% from yesterday\'s close</div>';
+        }
         html+='<div class="mini-chart"><canvas id="cv_'+c.sym+'" width="400" height="50"></canvas></div>';
         html+='<div class="chart-lbl"><span>Open $'+c.open.toFixed(3)+'</span><span>'+mt+'</span><span>Now $'+c.price.toFixed(3)+'</span></div>';
-        html+='<div class="cand-foot"><span class="rec rec-buy">&#9650; Momentum buy</span>';
+        var recClass=isDip?'rec-dip':'rec-buy';
+        var recLabel=isDip?'&#9660; Dip recovery':'&#9650; Momentum buy';
+        html+='<div class="cand-foot"><span class="rec '+recClass+'">'+recLabel+'</span>';
         html+='<div style="display:flex;gap:6px;align-items:center">';
         var starColor=starred?'#d4a017':'var(--text3)';
         var starChar=starred?'★':'☆';
         html+='<button onclick="toggleStar(\'' + c.sym + '\')" id="star_'+c.sym+'" style="background:none;border:1px solid var(--border2);padding:5px 9px;font-size:16px;cursor:pointer;color:'+starColor+';">'+starChar+'</button>';
         if(marketOpen){
-          html+=(c.rising?'<button class="btn btn-buy" onclick="doBuy(\''+c.sym+'\','+c.price+')">Buy Now</button>':'<button class="btn btn-wait" onclick="doBuy(\''+c.sym+'\','+c.price+')">Buy Anyway</button>');
+          html+='<button class="btn '+(isDip?'btn-wait':'btn-buy')+'" onclick="doBuy(\''+c.sym+'\','+c.price+')">'+(isDip?'Buy Dip':'Buy Now')+'</button>';
         }else{
           html+='<button class="btn btn-buy" disabled style="opacity:0.35;cursor:not-allowed">Market Closed</button>';
         }
