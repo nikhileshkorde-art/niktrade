@@ -396,7 +396,7 @@ var ADV_LABELS={
   volMin:['None','50K','100K','300K','500K','1M','2M'],
   priceMax:['$2','$5','$10','$20','$50']
 };
-var ADV_DEFAULTS={chgMin:1,chgMax:1,volMin:3,priceMax:1};
+var ADV_DEFAULTS={chgMin:1,chgMax:3,volMin:3,priceMax:1};
 function toggleAdv(){var t=document.getElementById('advToggle'),p=document.getElementById('advPanel');t.classList.toggle('open');p.classList.toggle('open');}
 function advFill(el){var pct=(parseInt(el.value)/parseInt(el.max))*100;el.style.setProperty('--fill',pct+'%');}
 function advTicks(id,activeIdx){
@@ -633,19 +633,36 @@ function drawChart(canvas,bars,rising){
 }
 
 async function fetchScreener(){
-  // Try Alpaca screener for live active stocks; fallback to hardcoded list on error
+  // Try top gainers first (most penny stocks appear here due to big % moves)
+  // Fall back to most-actives, then hardcoded list
+  var fallback=scanMode==='penny'?PENNY:QUALITY;
   try{
-    var ep='/v1beta1/screener/stocks/most-actives?by=volume&top=100';
+    var ep='/v1beta1/screener/stocks/top-market-movers?market_type=stocks';
     var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
     var res=await fetch(url,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
-    if(!res.ok)throw new Error('screener HTTP '+res.status);
+    if(!res.ok)throw new Error('movers HTTP '+res.status);
     var data=await res.json();
-    var syms=(data.most_actives||[]).map(function(s){return s.symbol;});
-    if(syms.length>0){log('Screener: '+syms.length+' active stocks fetched','info');return syms;}
-    throw new Error('empty screener response');
-  }catch(e){
-    log('Screener unavailable ('+e.message+'), using built-in list','info');
-    return scanMode==='penny'?PENNY:QUALITY;
+    var gainers=(data.gainers||[]).map(function(s){return s.symbol;});
+    if(gainers.length>0){
+      log('Live movers: '+gainers.length+' top gainers fetched','info');
+      return gainers;
+    }
+    throw new Error('empty gainers list');
+  }catch(e1){
+    log('Top movers unavailable ('+e1.message+'), trying most-actives…','info');
+    try{
+      var ep2='/v1beta1/screener/stocks/most-actives?by=volume&top=100';
+      var url2='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep2);
+      var res2=await fetch(url2,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
+      if(!res2.ok)throw new Error('actives HTTP '+res2.status);
+      var data2=await res2.json();
+      var syms=(data2.most_actives||[]).map(function(s){return s.symbol;});
+      if(syms.length>0){log('Most actives: '+syms.length+' stocks fetched','info');return syms;}
+      throw new Error('empty');
+    }catch(e2){
+      log('Screener unavailable — using built-in list','info');
+      return fallback;
+    }
   }
 }
 
