@@ -632,15 +632,33 @@ function drawChart(canvas,bars,rising){
   ctx.beginPath();ctx.arc(w-2,ly,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
 }
 
+async function fetchScreener(){
+  // Try Alpaca screener for live active stocks; fallback to hardcoded list on error
+  try{
+    var ep='/v1beta1/screener/stocks/most-actives?by=volume&top=100';
+    var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
+    var res=await fetch(url,{headers:{'x-api-key':CFG.apiKey,'x-api-secret':CFG.secretKey}});
+    if(!res.ok)throw new Error('screener HTTP '+res.status);
+    var data=await res.json();
+    var syms=(data.most_actives||[]).map(function(s){return s.symbol;});
+    if(syms.length>0){log('Screener: '+syms.length+' active stocks fetched','info');return syms;}
+    throw new Error('empty screener response');
+  }catch(e){
+    log('Screener unavailable ('+e.message+'), using built-in list','info');
+    return scanMode==='penny'?PENNY:QUALITY;
+  }
+}
+
 async function doScan(){
   var btn=document.getElementById('scanBtn');
   btn.innerHTML='<span class="spin"></span> Scanning...';btn.disabled=true;
-  document.getElementById('candidates').innerHTML='<div class="empty">Fetching market data...</div>';
-  var list=scanMode==='penny'?PENNY:QUALITY;
+  document.getElementById('candidates').innerHTML='<div class="empty">Fetching active stocks...</div>';
   var marketOpen=isMarketOpen();
   var mStatus=marketStatus();
   var F=getAdvFilters();
   try{
+    var list=await fetchScreener();
+    document.getElementById('candidates').innerHTML='<div class="empty">Analysing '+list.length+' stocks...</div>';
     var quotes=await fetchQuotes(list);
     var cands=[];
     for(var sym in quotes){
@@ -650,10 +668,9 @@ async function doScan(){
       var open=q.regularMarketOpen||prev;
       var vol=q.regularMarketVolume||0;
       var chg=q.regularMarketChangePercent||((price-prev)/prev)*100;
-      var isPenny=scanMode==='penny';
-      if(isPenny&&(price<F.priceMin||price>F.priceMax))continue;
-      if(isPenny&&vol<F.volMin)continue;
-      if(!isPenny&&vol<Math.max(F.volMin,500000))continue;
+      // For penny mode: filter by price range. Quality mode: just volume filter.
+      if(scanMode==='penny'&&(price<F.priceMin||price>F.priceMax))continue;
+      if(vol<F.volMin)continue;
       // Momentum strategy: % change from yesterday's close within user range
       if(chg<F.chgMin||chg>F.chgMax)continue;
       // When market is open: rising = currently above today's open (intraday momentum)
