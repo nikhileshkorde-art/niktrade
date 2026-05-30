@@ -171,6 +171,20 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
   body{padding:12px 10px;}
   .strat-tabs{flex-direction:column;}
 }
+.adv-toggle{display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;color:var(--text3);font-family:'Inter',sans-serif;padding:4px 0 10px 0;letter-spacing:0.4px;text-transform:uppercase;}
+.adv-toggle svg{transition:transform 0.2s;}
+.adv-toggle.open svg{transform:rotate(180deg);}
+.adv-panel{display:none;background:var(--surface);border:1px solid var(--border);padding:14px 16px;margin-bottom:14px;}
+.adv-panel.open{display:block;}
+.adv-row{margin-bottom:14px;}
+.adv-row:last-child{margin-bottom:0;}
+.adv-lbl{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:7px;}
+.adv-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--jade-dark);font-weight:700;}
+.adv-slider-wrap{display:flex;gap:8px;align-items:center;}
+input[type=range].adv-slider{-webkit-appearance:none;appearance:none;flex:1;height:3px;background:var(--border2);outline:none;border-radius:0;}
+input[type=range].adv-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;background:var(--jade);cursor:pointer;border-radius:0;}
+input[type=range].adv-slider::-moz-range-thumb{width:14px;height:14px;background:var(--jade);cursor:pointer;border-radius:0;border:none;}
+.adv-reset{font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:underline;padding:0;float:right;}
 </style>
 </head>
 <body>
@@ -252,7 +266,42 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
           <button class="scantab" onclick="setScan('quality',this)">Quality</button>
         </div>
       </div>
-      <button class="btn btn-primary btn-full" onclick="doScan()" id="scanBtn" style="margin-bottom:14px">Scan for Opportunities</button>
+      <button class="btn btn-primary btn-full" onclick="doScan()" id="scanBtn" style="margin-bottom:8px">Scan for Opportunities</button>
+      <button class="adv-toggle" id="advToggle" onclick="toggleAdv()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        Advanced filters
+      </button>
+      <div class="adv-panel" id="advPanel">
+        <div class="adv-row">
+          <div class="adv-lbl">% Change from yesterday <span class="adv-val" id="chgRangeVal">0.5% – 5%</span></div>
+          <div class="adv-slider-wrap">
+            <span style="font-size:10px;color:var(--text3)">0%</span>
+            <input type="range" class="adv-slider" id="chgMin" min="0" max="10" step="0.5" value="0.5" oninput="updateAdvLabels()">
+            <span style="font-size:10px;color:var(--text3)">–</span>
+            <input type="range" class="adv-slider" id="chgMax" min="0" max="20" step="0.5" value="5" oninput="updateAdvLabels()">
+            <span style="font-size:10px;color:var(--text3)">20%</span>
+          </div>
+        </div>
+        <div class="adv-row">
+          <div class="adv-lbl">Min volume <span class="adv-val" id="volVal">300K shares</span></div>
+          <div class="adv-slider-wrap">
+            <span style="font-size:10px;color:var(--text3)">0</span>
+            <input type="range" class="adv-slider" id="volMin" min="0" max="2000" step="50" value="300" oninput="updateAdvLabels()">
+            <span style="font-size:10px;color:var(--text3)">2M</span>
+          </div>
+        </div>
+        <div class="adv-row">
+          <div class="adv-lbl">Price range <span class="adv-val" id="priceRangeVal">$0.10 – $5.00</span></div>
+          <div class="adv-slider-wrap">
+            <span style="font-size:10px;color:var(--text3)">$0</span>
+            <input type="range" class="adv-slider" id="priceMin" min="0" max="5" step="0.05" value="0.10" oninput="updateAdvLabels()">
+            <span style="font-size:10px;color:var(--text3)">–</span>
+            <input type="range" class="adv-slider" id="priceMax" min="0.5" max="50" step="0.5" value="5" oninput="updateAdvLabels()">
+            <span style="font-size:10px;color:var(--text3)">$50</span>
+          </div>
+        </div>
+        <button class="adv-reset" onclick="resetAdv()">Reset to defaults</button>
+      </div>
       <div id="candidates"><div class="empty">Press scan to find stocks</div></div>
     </div>
     <div class="card">
@@ -314,6 +363,36 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 <script>
 var CFG={apiKey:'',secretKey:'',baseUrl:'',amt:25,email:'',cash:false,acctType:'live'};
 var acct=null,scanMode='penny',dtCount=0,stratIdx=0;
+function toggleAdv(){var t=document.getElementById('advToggle'),p=document.getElementById('advPanel');t.classList.toggle('open');p.classList.toggle('open');}
+function updateAdvLabels(){
+  var cMin=parseFloat(document.getElementById('chgMin').value);
+  var cMax=parseFloat(document.getElementById('chgMax').value);
+  if(cMin>cMax){document.getElementById('chgMin').value=cMax;cMin=cMax;}
+  document.getElementById('chgRangeVal').textContent=cMin+'% – '+cMax+'%';
+  var vol=parseInt(document.getElementById('volMin').value);
+  document.getElementById('volVal').textContent=(vol>=1000?(vol/1000).toFixed(1)+'M':vol+'K')+' shares';
+  var pMin=parseFloat(document.getElementById('priceMin').value);
+  var pMax=parseFloat(document.getElementById('priceMax').value);
+  if(pMin>pMax){document.getElementById('priceMin').value=pMax;pMin=pMax;}
+  document.getElementById('priceRangeVal').textContent='$'+pMin.toFixed(2)+' – $'+pMax.toFixed(2);
+}
+function resetAdv(){
+  document.getElementById('chgMin').value=0.5;
+  document.getElementById('chgMax').value=5;
+  document.getElementById('volMin').value=300;
+  document.getElementById('priceMin').value=0.10;
+  document.getElementById('priceMax').value=5;
+  updateAdvLabels();
+}
+function getAdvFilters(){
+  return{
+    chgMin:parseFloat(document.getElementById('chgMin').value),
+    chgMax:parseFloat(document.getElementById('chgMax').value),
+    volMin:parseInt(document.getElementById('volMin').value)*1000,
+    priceMin:parseFloat(document.getElementById('priceMin').value),
+    priceMax:parseFloat(document.getElementById('priceMax').value)
+  };
+}
 var STARRED=JSON.parse(localStorage.getItem('niktrade_stars')||'[]');
 var STRATS=[
   {name:'Conservative',trail:0.5,stop:1.0,desc:'Buy stocks up <strong>0.5–5%</strong> and still climbing. Trailing stop: sell if drops <strong>0.5%</strong> from peak. Hard stop at <strong>-1%</strong>.'},
@@ -511,6 +590,7 @@ async function doScan(){
   var list=scanMode==='penny'?PENNY:QUALITY;
   var marketOpen=isMarketOpen();
   var mStatus=marketStatus();
+  var F=getAdvFilters();
   try{
     var quotes=await fetchQuotes(list);
     var cands=[];
@@ -522,11 +602,11 @@ async function doScan(){
       var vol=q.regularMarketVolume||0;
       var chg=q.regularMarketChangePercent||((price-prev)/prev)*100;
       var isPenny=scanMode==='penny';
-      if(isPenny&&(price<0.10||price>5))continue;
-      if(isPenny&&vol<300000)continue;
-      if(!isPenny&&vol<500000)continue;
-      // Momentum strategy: up 0.5-5% from yesterday's close
-      if(chg<0.5||chg>5)continue;
+      if(isPenny&&(price<F.priceMin||price>F.priceMax))continue;
+      if(isPenny&&vol<F.volMin)continue;
+      if(!isPenny&&vol<Math.max(F.volMin,500000))continue;
+      // Momentum strategy: % change from yesterday's close within user range
+      if(chg<F.chgMin||chg>F.chgMax)continue;
       // When market is open: rising = currently above today's open (intraday momentum)
       // When market is closed: rising = closed higher than yesterday (day-over-day momentum)
       var rising=marketOpen?(price>open):(chg>0);
