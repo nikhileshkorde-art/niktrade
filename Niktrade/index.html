@@ -114,12 +114,19 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .cand.dip{border-left-color:var(--rose);}
 .dip-info{font-size:11px;color:var(--rose-dark);font-weight:600;font-family:'JetBrains Mono',monospace;background:var(--rose-bg);border:1px solid rgba(184,112,96,0.25);padding:3px 8px;margin-bottom:8px;display:inline-block;}
 .rec-dip{background:var(--rose-bg);color:var(--rose-dark);border:1px solid rgba(184,112,96,0.3);}
-.quick-buy-bar{display:flex;gap:8px;margin-bottom:14px;align-items:stretch;}
+.quick-buy-bar{display:flex;gap:8px;margin-bottom:10px;align-items:stretch;}
 .quick-buy-input{flex:1;border:1px solid var(--border2);background:var(--surface);padding:8px 12px;font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text1);text-transform:uppercase;outline:none;letter-spacing:1px;}
 .quick-buy-input::placeholder{color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;font-size:12px;}
 .quick-buy-input:focus{border-color:var(--jade);}
 .btn-quick{background:var(--jade);color:white;border:none;padding:8px 16px;font-size:12px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;}
 .btn-quick:disabled{opacity:0.45;cursor:not-allowed;}
+.quick-result{background:var(--surface);border:1px solid var(--border);padding:14px;margin-top:4px;}
+.quick-result-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.quick-result-sym{font-size:17px;font-weight:700;}
+.quick-result-sub{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.quick-result-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.quick-dt-info{font-size:11px;color:var(--text3);}
+.quick-dt-info strong{color:var(--gold);}
 .cand{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border2);padding:14px;margin-bottom:10px;}
 .cand.rising{border-left-color:var(--jade);}
 .cand.falling{border-left-color:var(--gold);}
@@ -289,10 +296,6 @@ input[type=range].adv-slider::-moz-range-thumb{width:20px;height:20px;border-rad
         <button class="modetab active momentum" id="modeTabMom" onclick="setMode('momentum',this)">▲ Momentum</button>
         <button class="modetab dip" id="modeTabDip" onclick="setMode('dip',this)">▼ Dip Recovery</button>
       </div>
-      <div class="quick-buy-bar">
-        <input class="quick-buy-input" id="quickSym" placeholder="Type ticker e.g. AAPL" maxlength="6" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')doQuickBuy()">
-        <button class="btn-quick" id="quickBtn" onclick="doQuickBuy()">Quick Buy</button>
-      </div>
       <button class="btn btn-primary btn-full" onclick="doScan()" id="scanBtn" style="margin-bottom:8px">Scan for Opportunities</button>
       <button class="adv-toggle" id="advToggle" onclick="toggleAdv()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -346,6 +349,14 @@ input[type=range].adv-slider::-moz-range-thumb{width:20px;height:20px;border-rad
         <button class="adv-reset" onclick="resetAdv()">Reset to defaults</button>
       </div>
       <div id="candidates"><div class="empty">Press scan to find stocks</div></div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px;">Know your ticker? Buy directly</div>
+        <div class="quick-buy-bar">
+          <input class="quick-buy-input" id="quickSym" placeholder="e.g. AAPL, TSLA, SNDL" maxlength="6" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')doQuickBuy()">
+          <button class="btn-quick" id="quickBtn" onclick="doQuickBuy()">Look Up</button>
+        </div>
+        <div id="quickResult"></div>
+      </div>
     </div>
     <div class="card">
       <div class="card-head">
@@ -815,7 +826,9 @@ async function doQuickBuy(){
   if(!sym){log('Enter a ticker symbol first','error');return;}
   if(!CFG.apiKey){log('Connect your Alpaca account first','error');return;}
   var btn=document.getElementById('quickBtn');
+  var resultDiv=document.getElementById('quickResult');
   btn.disabled=true;btn.textContent='Looking up…';
+  resultDiv.innerHTML='';
   try{
     var ep='/v2/stocks/snapshots?symbols='+sym;
     var url='/.netlify/functions/alpaca?endpoint='+encodeURIComponent(ep);
@@ -823,16 +836,49 @@ async function doQuickBuy(){
     if(!res.ok)throw new Error('HTTP '+res.status);
     var data=await res.json();
     var d=data[sym];
-    if(!d||!d.latestTrade){throw new Error(sym+' not found or no price data');}
-    var price=d.latestTrade.p||(d.dailyBar&&d.dailyBar.c);
-    if(!price)throw new Error('No price available for '+sym);
-    log('Quick lookup: '+sym+' @ $'+price.toFixed(3),'info');
-    document.getElementById('quickSym').value='';
-    await doBuy(sym,price);
+    if(!d||(!d.latestTrade&&!d.dailyBar))throw new Error(sym+' not found');
+    var price=(d.latestTrade&&d.latestTrade.p)||d.dailyBar.c;
+    var prev=d.prevDailyBar?d.prevDailyBar.c:price;
+    var open=d.dailyBar?d.dailyBar.o:price;
+    var vol=d.dailyBar?d.dailyBar.v:0;
+    var chg=((price-prev)/prev)*100;
+    var vs=vol>1e6?(vol/1e6).toFixed(1)+'M':vol>1000?(vol/1000).toFixed(0)+'K':vol;
+    var chgSign=chg>=0?'+':'';
+    var chgCol=chg>=0?'var(--jade-dark)':'var(--red)';
+    var mktOpen=isMarketOpen();
+    var mStatus=marketStatus();
+    var dtLeft=Math.max(0,3-dtCount);
+    var dtWarn=!CFG.cash&&dtLeft<=1;
+    // Day trade warning: if already holding this stock, selling same day = day trade
+    var dtNote=CFG.cash?'Cash account — unlimited trades':'Day trades left this week: <strong style="color:'+(dtWarn?'var(--red)':'var(--gold)')+'">'+dtLeft+' / 3</strong>';
+    var buyBtnHtml;
+    if(!mktOpen){
+      buyBtnHtml='<button class="btn btn-buy" disabled style="opacity:0.35;cursor:not-allowed" title="'+mStatus+'">Market Closed</button>';
+    }else{
+      buyBtnHtml='<button class="btn btn-buy" onclick="doBuy(\''+sym+'\','+price+')">Buy '+sym+'</button>';
+    }
+    resultDiv.innerHTML='<div class="quick-result">'+
+      '<div class="quick-result-top">'+
+        '<div><div class="quick-result-sym">'+sym+'</div>'+
+        '<div class="quick-result-sub">$'+price.toFixed(3)+' &middot; Vol: '+vs+'</div></div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:15px;font-weight:700;color:'+chgCol+'">'+chgSign+chg.toFixed(2)+'%</div>'+
+          '<div style="font-size:10px;color:var(--text3)">vs yesterday</div>'+
+          '<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(price>open?'▲ Above open':'▼ Below open')+'</div>'+
+        '</div>'+
+      '</div>'+
+      (!mktOpen?'<div style="font-size:11px;color:var(--gold-dark);background:var(--gold-bg);padding:6px 10px;margin-bottom:8px;">'+mStatus+'</div>':'')+
+      '<div class="quick-result-foot">'+
+        '<div class="quick-dt-info">'+dtNote+'</div>'+
+        buyBtnHtml+
+      '</div>'+
+    '</div>';
+    log('Looked up '+sym+' @ $'+price.toFixed(3)+' ('+chgSign+chg.toFixed(2)+'%)','info');
   }catch(e){
-    log('Quick buy failed: '+e.message,'error');
+    resultDiv.innerHTML='<div class="empty" style="font-size:12px;padding:10px">Could not find "'+sym+'" — check the ticker and try again.</div>';
+    log('Quick lookup failed: '+e.message,'error');
   }
-  btn.disabled=false;btn.textContent='Quick Buy';
+  btn.disabled=false;btn.textContent='Look Up';
 }
 
 async function sellPos(sym,qty,isToday){
